@@ -47,7 +47,7 @@ async def plugin_logo():
 @app.get("/.well-known/ai-plugin.json")
 async def plugin_manifest():
     host = request.headers['Host']
-    with open("ai-plugin.json") as f:
+    with open(".well-known/ai-plugin.json") as f:
         text = f.read()
         # This is a trick we do to populate the PLUGIN_HOSTNAME constant in the manifest
         text = text.replace("PLUGIN_HOSTNAME", f"https://{host}")
