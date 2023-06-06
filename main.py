@@ -1,16 +1,72 @@
-# This is a sample Python script.
+import json
 
-# Press ⌃R to execute it or replace it with your code.
-# Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
+import quart
+import quart_cors
+from quart import request
+
+# Note: Setting CORS to allow chat.openapi.com is only required when running a localhost plugin
+app = quart_cors.cors(quart.Quart(__name__), allow_origin="https://chat.openai.com")
+
+_TODOS = {}
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press ⌘F8 to toggle the breakpoint.
+# @app.get("/todos/<string:username>")
+# async def echo(username):
+#     return quart.Response(response=json.dumps(username), status=200)
+#
+
+@app.post("/todos/<string:username>")
+async def add_todo(username):
+    _request = await quart.request.get_json(force=True)
+    if username not in _TODOS:
+        _TODOS[username] = []
+    _TODOS[username].append(_request["todo"])
+    return quart.Response(response='OK', status=200)
 
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
+@app.get("/todos/<string:username>")
+async def get_todos(username):
+    return quart.Response(response=json.dumps(_TODOS.get(username, [])), status=200)
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+
+@app.delete("/todos/<string:username>")
+async def delete_todo(username):
+    _request = await quart.request.get_json(force=True)
+    todo_idx = _request["todo_idx"]
+    if 0 <= todo_idx < len(_TODOS[username]):
+        _TODOS[username].pop(todo_idx)
+    return quart.Response(response='OK', status=200)
+
+
+@app.get("/logo.png")
+async def plugin_logo():
+    filename = 'logo.png'
+    return await quart.send_file(filename, mimetype='image/png')
+
+
+@app.get("/.well-known/ai-plugin.json")
+async def plugin_manifest():
+    host = request.headers['Host']
+    with open("ai-plugin.json") as f:
+        text = f.read()
+        # This is a trick we do to populate the PLUGIN_HOSTNAME constant in the manifest
+        text = text.replace("PLUGIN_HOSTNAME", f"https://{host}")
+        return quart.Response(text, mimetype="text/json")
+
+
+@app.get("/openapi.yaml")
+async def openapi_spec():
+    host = request.headers['Host']
+    with open("openapi.yaml") as f:
+        text = f.read()
+        # This is a trick we do to populate the PLUGIN_HOSTNAME constant in the OpenAPI spec
+        text = text.replace("PLUGIN_HOSTNAME", f"https://{host}")
+        return quart.Response(text, mimetype="text/yaml")
+
+
+def main():
+    app.run(debug=True, host="0.0.0.0", port=5002)
+
+
+if __name__ == "__main__":
+    main()
